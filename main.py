@@ -3,13 +3,19 @@ from yt_dlp import YoutubeDL
 
 app = FastAPI(title="FastAPI PornHub API")
 
+# Health check para Koyeb
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+# Endpoint principal para extrair vídeo
 @app.get("/pornhub")
 async def get_video(url: str):
     # Configuração do yt-dlp
     ydl_opts = {
-        "quiet": True,             # evita logs excessivos
-        "nocheckcertificate": True,# ignora certificados SSL inválidos
-        "skip_download": True      # não baixa o vídeo, só extrai info
+        "quiet": True,              # evita logs excessivos
+        "nocheckcertificate": True, # ignora certificados SSL inválidos
+        "skip_download": True       # não baixa o vídeo, só extrai info
     }
 
     try:
@@ -25,7 +31,7 @@ async def get_video(url: str):
             "status": 200,
             "title": title,
             "video": video_url,
-            "note": "API rodando no Leapcell serverless"
+            "note": "API rodando no Leapcell/Koyeb serverless"
         }
 
     except Exception as e:
