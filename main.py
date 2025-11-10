@@ -1,39 +1,61 @@
 from fastapi import FastAPI, HTTPException
 from yt_dlp import YoutubeDL
 
-app = FastAPI(title="FastAPI PornHub API")
+app = FastAPI(title="FastAPI Multi-Platform Video Info API")
 
-# Health check para Koyeb
+# Health check
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
 
-# Endpoint principal para extrair vídeo
-@app.get("/pornhub")
-async def get_video(url: str):
+# Endpoint para obter informações do vídeo
+@app.get("/video_info")
+async def video_info(url: str, platform: str):
     # Configuração do yt-dlp
     ydl_opts = {
-        "quiet": True,              # evita logs excessivos
-        "nocheckcertificate": True, # ignora certificados SSL inválidos
-        "skip_download": True       # não baixa o vídeo, só extrai info
+        "quiet": True,
+        "nocheckcertificate": True,
+        "skip_download": True,  # Não baixa, só extrai info
+        "format": "best"         # Melhor qualidade disponível
     }
+
+    # Plataformas válidas
+    valid_platforms = ["pornhub", "kwai", "tiktok", "instagram"]
+    if platform.lower() not in valid_platforms:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Plataforma inválida. Escolha: {valid_platforms}"
+        )
 
     try:
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            video_url = info.get("url")
-            title = info.get("title", "Indisponível")
+
+        # Pega melhor vídeo disponível
+        formats = info.get("formats", [])
+        if not formats:
+            raise HTTPException(status_code=404, detail="Nenhum formato de vídeo encontrado")
+
+        best_format = max(formats, key=lambda f: f.get("height", 0))
+        video_url = best_format.get("url")
 
         if not video_url:
-            raise HTTPException(status_code=404, detail="Vídeo não encontrado")
+            raise HTTPException(status_code=404, detail="Link de download não encontrado")
 
-        return {
+        # Retorna informações principais + thumbnail/capa
+        response = {
             "status": 200,
-            "title": title,
-            "video": video_url,
-            "note": "API rodando no Leapcell/Koyeb serverless"
+            "platform": platform.lower(),
+            "title": info.get("title", "Indisponível"),
+            "uploader": info.get("uploader", "Indisponível"),
+            "upload_date": info.get("upload_date", "Indisponível"),
+            "duration": info.get("duration", "Indisponível"),
+            "description": info.get("description", "Indisponível"),
+            "thumbnail": info.get("thumbnail", None),
+            "download_url": video_url
         }
 
+        return response
+
     except Exception as e:
-        # Se yt-dlp não conseguir extrair título ou link
         raise HTTPException(status_code=500, detail=str(e))
